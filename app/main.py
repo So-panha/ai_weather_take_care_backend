@@ -27,14 +27,24 @@ if settings.RATE_LIMITING_ENABLED:
 app.add_exception_handler(AppException, app_exception_handler)
 
 # Set all CORS enabled origins
-if settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+if "*" in origins:
+    # When using allow_credentials=True, origins cannot be ["*"]
+    # We list common local dev origins for convenience
+    origins = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173", # Vite preview
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include core API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
