@@ -74,15 +74,22 @@ class Settings(BaseSettings):
     def assemble_db_connection(self) -> "Settings":
         if not self.DATABASE_URL:
             if all([self.POSTGRES_USER, self.POSTGRES_PASSWORD, self.POSTGRES_SERVER, self.POSTGRES_DB]):
-                # Add ?ssl=require to force SSL mode
                 self.DATABASE_URL = (
                     f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-                    f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}?ssl=require"
+                    f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
                 )
-        if self.DATABASE_URL and self.DATABASE_URL.startswith("postgresql://"):
-            self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
-            if "?ssl=" not in self.DATABASE_URL:
-                self.DATABASE_URL += "?ssl=require"
+        
+        if self.DATABASE_URL:
+            # Handle 'postgres://' (common in Render/Heroku) and 'postgresql://' for asyncpg
+            if self.DATABASE_URL.startswith("postgres://"):
+                self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif self.DATABASE_URL.startswith("postgresql://") and not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
+                self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+            
+            # Ensure ssl=require is added for Render/Production if not already present
+            if "ssl=" not in self.DATABASE_URL:
+                separator = "&" if "?" in self.DATABASE_URL else "?"
+                self.DATABASE_URL += f"{separator}ssl=require"
             
         print(f"--- DEBUG: CONNECTING TO DATABASE WITH URL: {self.DATABASE_URL} ---")
         return self
