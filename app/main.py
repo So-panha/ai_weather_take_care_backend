@@ -10,16 +10,34 @@ from app.core.config import settings
 from app.api.routes import api_router
 from app.core.exceptions import AppException, app_exception_handler
 from app.core.logging import setup_logging
+from contextlib import asynccontextmanager 
+from app.database import Base, engine
 
 
 setup_logging()
 
-# Create FastAPI app instances
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import logging
+    logging.info("Checking database tables...")
+    try:
+        # This securely connects to Render PostgreSQL and creates tables if missing
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logging.info("Database tables initialized successfully!")
+    except Exception as e:
+        logging.error(f"Failed to auto-initialize database tables: {e}")
+    
+    yield  # The app runs while execution is paused here
+
+# Create FastAPI app instances with lifespan attached
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
-)   
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan  # <-- ATTACHED LIFESPAN HERE
+)
 
 # Apply Rate Limiter
 if settings.RATE_LIMITING_ENABLED:
