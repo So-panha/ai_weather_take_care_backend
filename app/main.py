@@ -1,3 +1,5 @@
+from fastapi.responses import JSONResponse
+from fastapi import Request
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +10,7 @@ from app.core.config import settings
 from app.api.routes import api_router
 from app.core.exceptions import AppException, app_exception_handler
 from app.core.logging import setup_logging
+
 
 setup_logging()
 
@@ -26,17 +29,33 @@ if settings.RATE_LIMITING_ENABLED:
 
 app.add_exception_handler(AppException, app_exception_handler)
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    import logging
+    logging.error(f"Unhandled exception: {exc}")
+    logging.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error. Please check backend logs."},
+    )
+
 # Set all CORS enabled origins
 origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
-if "*" in origins:
-    # When using allow_credentials=True, origins cannot be ["*"]
-    # We list common local dev origins for convenience
-    origins = [
+
+# Add Vercel and local origins for convenience if "*" or generic list
+if "*" in origins or len(origins) <= 1:
+    origins.extend([
+        "https://ai-weather-take-care-frontend.vercel.app",
         "http://localhost:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5173",
-        "http://localhost:4173", # Vite preview
-    ]
+    ])
+
+# Remove duplicates
+origins = list(set(origins))
+if "*" in origins and len(origins) > 1:
+    origins.remove("*")
 
 app.add_middleware(
     CORSMiddleware,
