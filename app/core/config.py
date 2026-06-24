@@ -72,17 +72,19 @@ class Settings(BaseSettings):
     # --- Automatically Build DATABASE_URL if missing ---
     @model_validator(mode="after")
     def assemble_db_connection(self) -> "Settings":
-        # If DATABASE_URL isn't explicitly provided, build it from parts
         if not self.DATABASE_URL:
             if all([self.POSTGRES_USER, self.POSTGRES_PASSWORD, self.POSTGRES_SERVER, self.POSTGRES_DB]):
+                # Add ?ssl=require to force SSL mode
                 self.DATABASE_URL = (
                     f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-                    f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+                    f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}?ssl=require"
                 )
-        # Safety fallback: ensure whatever string we use has the async driver prefix
         if self.DATABASE_URL and self.DATABASE_URL.startswith("postgresql://"):
             self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+            if "?ssl=" not in self.DATABASE_URL:
+                self.DATABASE_URL += "?ssl=require"
             
+        print(f"--- DEBUG: CONNECTING TO DATABASE WITH URL: {self.DATABASE_URL} ---")
         return self
 
     # --- JWT ---
