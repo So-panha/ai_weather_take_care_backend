@@ -11,11 +11,11 @@ from app.api.routes import api_router
 from app.core.exceptions import AppException, app_exception_handler
 from app.core.logging import setup_logging
 from contextlib import asynccontextmanager 
-from app.database import Base, engine
+from app.database import engine, Base 
+import app.models  # Ensure all models are imported for Base.metadata
 
 
 setup_logging()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
